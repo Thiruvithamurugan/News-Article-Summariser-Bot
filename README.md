@@ -1,4 +1,7 @@
 # News-Article-Summariser-Bot
+
+Link: https://thiruvithamurugan.app.n8n.cloud/webhook/10843ce5-412f-453e-b74e-409a002e7803/chat
+
 A News &amp; Article Summariser bot that turns long articles, blogs, and url into three crisp bullet points instantly. Built with n8n + OpenAI, it fetches content, cuts through information overload, and delivers fast, clear summaries without needing extra apps.
 
 Summariser Bot – n8n + OpenAI

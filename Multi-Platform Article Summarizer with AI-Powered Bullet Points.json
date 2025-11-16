@@ -1,0 +1,557 @@
+{
+  "name": "Multi-Platform Article Summarizer with AI-Powered Bullet Points",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "cfe07a5c-fff7-499d-b52c-40d496a52003",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        608
+      ],
+      "webhookId": "7829de2a-4eae-4f50-9fa6-05192fc41225"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "6d907773-f396-4aef-b3ca-03b45eb4aa43",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        800
+      ],
+      "webhookId": "b8ed2a31-06d2-43d5-8fa8-221c15b0dcb5",
+      "credentials": {
+        "telegramApi": {
+          "id": "uGNQ4Io1xJSRTdqO",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "id": "67a2c69d-2b57-4f8c-865c-703d90bdbd83",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -256,
+        992
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eEZTvzIDuIb2bh8u",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "id": "039b03e9-56c6-49cb-99a7-5abef12e0a25",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -32,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "maxChunkSize",
+              "value": 3000,
+              "type": "number"
+            },
+            {
+              "id": "id-2",
+              "name": "summaryPrompt",
+              "value": "Summarize the following article text in exactly 3 bullet points. Be concise and capture the key information.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "277b5c79-df68-4656-a7e7-45156c1a7f1d",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  let messageText = '';\n  let platform = '';\n  let senderId = '';\n  let chatId = '';\n  let messageId = '';\n  \n  // WhatsApp\n  if (item.json.messages) {\n    messageText = item.json.messages[0]?.text?.body || '';\n    platform = 'whatsapp';\n    senderId = item.json.messages[0]?.from || '';\n  }\n  // Telegram\n  else if (item.json.message) {\n    messageText = item.json.message?.text || '';\n    platform = 'telegram';\n    chatId = item.json.message?.chat?.id || '';\n    messageId = item.json.message?.message_id || '';\n  }\n  // Gmail\n  else if (item.json.snippet) {\n    messageText = item.json.snippet || item.json.textPlain || '';\n    platform = 'gmail';\n    senderId = item.json.from || '';\n    messageId = item.json.id || '';\n  }\n  \n  // Extract URL from message\n  const urlRegex = /(https?:\\/\\/[^\\s]+)/g;\n  const urls = messageText.match(urlRegex);\n  const articleUrl = urls ? urls[0] : '';\n  \n  results.push({\n    json: {\n      ...item.json,\n      articleUrl,\n      platform,\n      senderId,\n      chatId,\n      messageId,\n      originalMessage: messageText\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "e68dc8a7-4271-4863-878a-adf78f5d6ddb",
+      "name": "Extract URL and Platform",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.articleUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "6ba93257-ce81-49e6-a626-84e569d3cd4d",
+      "name": "Fetch Article HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        640,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "articleContent",
+              "cssSelector": "article, .article, .post-content, .entry-content, main, body",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true,
+          "cleanUpText": true
+        }
+      },
+      "id": "94db50ce-44b1-4392-b8e8-499c223e406f",
+      "name": "Extract Clean Text",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\nconst maxChunkSize = $('Workflow Configuration').first().json.maxChunkSize;\n\nfor (const item of items) {\n  let text = '';\n  \n  // Extract text from HTML extraction result\n  if (Array.isArray(item.json)) {\n    text = item.json.map(el => el.text || '').join(' ');\n  } else if (item.json.text) {\n    text = item.json.text;\n  } else if (typeof item.json === 'string') {\n    text = item.json;\n  }\n  \n  // Clean up text\n  text = text.replace(/\\s+/g, ' ').trim();\n  \n  // If text is short enough, return as single item\n  if (text.length <= maxChunkSize) {\n    results.push({\n      json: {\n        ...item.json,\n        textChunk: text,\n        chunkIndex: 0,\n        totalChunks: 1\n      }\n    });\n  } else {\n    // Split into chunks\n    const chunks = [];\n    let currentChunk = '';\n    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];\n    \n    for (const sentence of sentences) {\n      if ((currentChunk + sentence).length <= maxChunkSize) {\n        currentChunk += sentence;\n      } else {\n        if (currentChunk) chunks.push(currentChunk.trim());\n        currentChunk = sentence;\n      }\n    }\n    if (currentChunk) chunks.push(currentChunk.trim());\n    \n    // Create items for each chunk\n    chunks.forEach((chunk, index) => {\n      results.push({\n        json: {\n          ...item.json,\n          textChunk: chunk,\n          chunkIndex: index,\n          totalChunks: chunks.length\n        }\n      });\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "de9e7df7-702c-4577-be43-94c70d53e1bb",
+      "name": "Chunk Text for Long Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "message"
+      },
+      "id": "275798ab-bcc1-47fb-9303-b71dc255b81a",
+      "name": "Summarize with OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        800
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "kDGfshoQ3iyBmMBe",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "message",
+              "renameField": true,
+              "outputFieldName": "summaries"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6eb3dd05-9754-47b5-a1a0-af6cee412dc4",
+      "name": "Combine Summaries",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst item = items[0];\n\nlet finalSummary = '';\n\nif (item.json.summaries && Array.isArray(item.json.summaries)) {\n  // If we have multiple chunk summaries, combine them\n  if (item.json.summaries.length > 1) {\n    const combinedText = item.json.summaries.join('\\n\\n');\n    finalSummary = '📄 Article Summary:\\n\\n' + combinedText;\n  } else {\n    finalSummary = '📄 Article Summary:\\n\\n' + item.json.summaries[0];\n  }\n} else {\n  finalSummary = '📄 Article Summary:\\n\\n' + (item.json.message || 'Unable to generate summary');\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    finalSummary\n  }\n}];"
+      },
+      "id": "938b713a-582c-44f4-8a3f-d4038cecab92",
+      "name": "Format Final Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.platform }}",
+                    "rightValue": "whatsapp",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "WhatsApp"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.platform }}",
+                    "rightValue": "telegram",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Telegram"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.platform }}",
+                    "rightValue": "gmail",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Gmail"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "612e8b7c-b806-47c3-9de3-935477caf935",
+      "name": "Route to Platform",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        2112,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "from": "<__PLACEHOLDER_VALUE__Twilio WhatsApp number (e.g., whatsapp:+14155238886)__>",
+        "to": "={{ 'whatsapp:' + $json.senderId }}",
+        "message": "={{ $json.finalSummary }}",
+        "options": {}
+      },
+      "id": "9e306cf6-0f24-41b5-a00d-3d52a27c7031",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        2336,
+        992
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.finalSummary }}",
+        "additionalFields": {}
+      },
+      "id": "da5968f7-a36b-4b2b-adf1-e6863daf3f81",
+      "name": "Send Telegram Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2336,
+        608
+      ],
+      "webhookId": "e0d32123-0161-4b84-931b-952f0ea45bfe",
+      "credentials": {
+        "telegramApi": {
+          "id": "uGNQ4Io1xJSRTdqO",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $json.messageId }}",
+        "message": "={{ $json.finalSummary }}",
+        "options": {}
+      },
+      "id": "449d5b97-e781-4b72-a4d0-62c92fff05d5",
+      "name": "Send Gmail Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2336,
+        800
+      ],
+      "webhookId": "255814fb-ac3e-4253-a75b-63fa2fa36ea7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eEZTvzIDuIb2bh8u",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Extract URL and Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract URL and Platform": {
+      "main": [
+        [
+          {
+            "node": "Fetch Article HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Article HTML": {
+      "main": [
+        [
+          {
+            "node": "Extract Clean Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Clean Text": {
+      "main": [
+        [
+          {
+            "node": "Chunk Text for Long Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Text for Long Articles": {
+      "main": [
+        [
+          {
+            "node": "Summarize with OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize with OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Combine Summaries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Summaries": {
+      "main": [
+        [
+          {
+            "node": "Format Final Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Summary": {
+      "main": [
+        [
+          {
+            "node": "Route to Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Platform": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Gmail Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "44340a75-7200-4aba-b136-0a001b4d62ae",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fd319f608ecfea08250b88774508115479b695ee03b81c87cb1640e704c86e6a"
+  },
+  "id": "XPDoAkexmpL6N2np",
+  "tags": []
+}
